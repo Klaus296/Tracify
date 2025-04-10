@@ -1,9 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput, Modal, Button, Image } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput, Modal, Button, Image, Alert, BackHandler } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as FileSystem from 'expo-file-system';
-import * as Notifications from 'expo-notifications';
 
 const FILE_PATH = `${FileSystem.documentDirectory}appData.json`;
 
@@ -11,6 +10,7 @@ export default function App() {
   const [savedHabits, setSavedHabits] = useState([]);
   const [todayHabits, setTodayHabits] = useState([]);
   const [newHabit, setNewHabit] = useState('');
+  const [isImportant, setIsImportant] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [showHabitSelector, setShowHabitSelector] = useState(false);
   const [showStore, setShowStore] = useState(false);
@@ -18,11 +18,11 @@ export default function App() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [theme, setTheme] = useState('light');
   const [language, setLanguage] = useState('ru');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [points, setPoints] = useState(0);
   const [lives, setLives] = useState(3);
   const [purchases, setPurchases] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [completedToday, setCompletedToday] = useState(0); // Новый счетчик выполненных привычек
 
   const daysOfWeek = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
@@ -35,41 +35,36 @@ export default function App() {
   useEffect(() => {
     async function initializeApp() {
       await loadData();
-      await configureNotifications();
       await checkNewDay();
     }
     initializeApp();
 
     const interval = setInterval(() => checkNewDay(), 60000);
-    return () => clearInterval(interval);
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      Alert.alert(
+        getText('exitTitle'),
+        getText('exitMessage'),
+        [
+          { text: getText('cancel'), style: 'cancel' },
+          {
+            text: getText('exit'),
+            onPress: async () => {
+              await saveData();
+              BackHandler.exitApp();
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+      return true;
+    });
+
+    return () => {
+      clearInterval(interval);
+      backHandler.remove();
+    };
   }, []);
-
-  const configureNotifications = async () => {
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') {
-      alert(getText('notificationsPermission'));
-      return;
-    }
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: notificationsEnabled,
-        shouldPlaySound: notificationsEnabled,
-        shouldSetBadge: false,
-      }),
-    });
-  };
-
-  const scheduleDailyNotification = async () => {
-    if (!notificationsEnabled) return;
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: getText('habitReminder'),
-        body: getText('today'),
-      },
-      trigger: { hour: 9, minute: 0, repeats: true },
-    });
-  };
 
   const checkNewDay = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -80,8 +75,8 @@ export default function App() {
       }
       setTodayHabits([]);
       setPurchases([]);
+      setCompletedToday(0); // Сбрасываем счетчик выполненных привычек
       setCurrentDate(today);
-      await scheduleDailyNotification();
       await saveData();
     }
   };
@@ -96,11 +91,9 @@ export default function App() {
         purchases,
         theme,
         language,
-        notificationsEnabled,
+        completedToday, // Сохраняем счетчик
       };
-      console.log('Saving data:', JSON.stringify(data));
       await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(data));
-      console.log('Data saved successfully at:', FILE_PATH);
     } catch (error) {
       console.error('Failed to save data:', error);
       alert('Ошибка сохранения данных: ' + error.message);
@@ -110,7 +103,6 @@ export default function App() {
   const loadData = async () => {
     try {
       const fileInfo = await FileSystem.getInfoAsync(FILE_PATH);
-      console.log('Checking file at:', FILE_PATH, 'Exists:', fileInfo.exists);
       if (fileInfo.exists) {
         const data = await FileSystem.readAsStringAsync(FILE_PATH);
         const parsedData = JSON.parse(data);
@@ -121,14 +113,13 @@ export default function App() {
         setPurchases(parsedData.purchases || []);
         setTheme(parsedData.theme || 'light');
         setLanguage(parsedData.language || 'ru');
-        setNotificationsEnabled(parsedData.notificationsEnabled !== false);
-        console.log('Data loaded:', parsedData);
+        setCompletedToday(parsedData.completedToday || 0);
       } else {
         setPoints(0);
         setLives(3);
         setTheme('light');
         setLanguage('ru');
-        setNotificationsEnabled(true);
+        setCompletedToday(0);
         await saveData();
       }
     } catch (error) {
@@ -146,9 +137,9 @@ export default function App() {
       status: 'pending',
       isSaved: saveToSaved,
       createdDate: new Date().toISOString().split('T')[0],
+      isImportant: isImportant,
     };
 
-    // Сначала обновляем все состояния, затем сохраняем
     let newSavedHabits = savedHabits;
     let newTodayHabits = todayHabits;
 
@@ -159,27 +150,10 @@ export default function App() {
     newTodayHabits = [...todayHabits, { ...habitObj, id: `${habitObj.id}-${currentDate}` }];
     setTodayHabits(newTodayHabits);
     setNewHabit('');
+    setIsImportant(false);
     setShowHabitSelector(false);
 
-    // Сохраняем после всех изменений
-    try {
-      const data = {
-        savedHabits: newSavedHabits,
-        todayHabits: newTodayHabits,
-        points,
-        lives,
-        purchases,
-        theme,
-        language,
-        notificationsEnabled,
-      };
-      console.log('Saving new habit:', JSON.stringify(data));
-      await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(data));
-      console.log('Habit saved successfully at:', FILE_PATH);
-    } catch (error) {
-      console.error('Failed to save new habit:', error);
-      alert('Ошибка сохранения новой привычки: ' + error.message);
-    }
+    await saveData();
   };
 
   const addSavedHabitToToday = async (habit) => {
@@ -192,22 +166,10 @@ export default function App() {
     setShowHabitSelector(false);
   };
 
-  const toggleHabitStatus = async (id) => {
-    const updatedHabits = todayHabits.map(habit =>
-      habit.id === id
-        ? { ...habit, status: habit.status === 'done' ? 'pending' : 'done' }
-        : habit
-    );
-    setTodayHabits(updatedHabits);
-    setPoints(prev => {
-      const habit = todayHabits.find(h => h.id === id);
-      return habit.status === 'done' ? prev - 5 : prev + 5;
-    });
-    await saveData();
-  };
-
-  const deleteTodayHabit = async (id) => {
+  const completeHabit = async (id) => {
     setTodayHabits(prev => prev.filter(habit => habit.id !== id));
+    setPoints(prev => prev + 5);
+    setCompletedToday(prev => prev + 1); // Увеличиваем счетчик выполненных
     await saveData();
   };
 
@@ -231,32 +193,21 @@ export default function App() {
       style={[
         styles.habitItem,
         {
-          backgroundColor:
-            item.status === 'done'
-              ? '#00FF00'
-              : theme === 'light'
-              ? '#fff'
-              : '#333',
+          backgroundColor: item.isImportant
+            ? '#FFFF99' // Желтый для важных
+            : theme === 'light'
+            ? '#fff'
+            : '#333',
         },
       ]}
     >
       <TouchableOpacity
         style={styles.habitTextContainer}
-        onPress={() => toggleHabitStatus(item.id)}
+        onPress={() => completeHabit(item.id)}
       >
-        <Text
-          style={{
-            color: item.status === 'done' ? '#000' : theme === 'light' ? '#000' : '#fff',
-          }}
-        >
+        <Text style={{ color: item.isImportant ? '#000' : theme === 'light' ? '#000' : '#fff' }}>
           {item.title}
         </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => deleteTodayHabit(item.id)}
-      >
-        <AntDesign name="delete" size={20} color="#ff4444" />
       </TouchableOpacity>
     </View>
   );
@@ -267,7 +218,9 @@ export default function App() {
         style={styles.habitTextContainer}
         onPress={() => addSavedHabitToToday(item)}
       >
-        <Text style={{ color: theme === 'light' ? '#000' : '#fff' }}>{item.title}</Text>
+        <Text style={{ color: theme === 'light' ? '#000' : '#fff' }}>
+          {item.title} {item.isImportant && '(Важно)'}
+        </Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.deleteButton}
@@ -306,7 +259,6 @@ export default function App() {
       store: 'Магазин',
       theme: 'Тема',
       language: 'Язык',
-      notificationsEnabled: 'Уведомления',
       lightTheme: 'Светлая',
       darkTheme: 'Темная',
       russian: 'Русский',
@@ -316,8 +268,12 @@ export default function App() {
       lives: 'Жизни',
       buy: 'Купить',
       purchased: 'Куплено',
-      habitReminder: 'Напоминание о привычках',
-      notificationsPermission: 'Разрешение на уведомления не получено!',
+      exitTitle: 'Выход',
+      exitMessage: 'Вы уверены, что хотите выйти?',
+      cancel: 'Отмена',
+      exit: 'Выйти',
+      important: 'Важная',
+      completedToday: 'Выполнено сегодня',
     },
     en: {
       today: 'Today',
@@ -331,7 +287,6 @@ export default function App() {
       store: 'Store',
       theme: 'Theme',
       language: 'Language',
-      notificationsEnabled: 'Notifications',
       lightTheme: 'Light',
       darkTheme: 'Dark',
       russian: 'Русский',
@@ -341,8 +296,12 @@ export default function App() {
       lives: 'Lives',
       buy: 'Buy',
       purchased: 'Purchased',
-      habitReminder: 'Habit Reminder',
-      notificationsPermission: 'Notifications permission not granted!',
+      exitTitle: 'Exit',
+      exitMessage: 'Are you sure you want to exit?',
+      cancel: 'Cancel',
+      exit: 'Exit',
+      important: 'Important',
+      completedToday: 'Completed today',
     },
     es: {
       today: 'Hoy',
@@ -356,7 +315,6 @@ export default function App() {
       store: 'Tienda',
       theme: 'Тema',
       language: 'Idioma',
-      notificationsEnabled: 'Notificaciones',
       lightTheme: 'Claro',
       darkTheme: 'Oscuro',
       russian: 'Русский',
@@ -366,8 +324,12 @@ export default function App() {
       lives: 'Vidas',
       buy: 'Comprar',
       purchased: 'Comprado',
-      habitReminder: 'Recordatorio de Hábito',
-      notificationsPermission: '¡Permiso de notificaciones no concedido!',
+      exitTitle: 'Salir',
+      exitMessage: '¿Estás seguro de que quieres salir?',
+      cancel: 'Cancelar',
+      exit: 'Salir',
+      important: 'Importante',
+      completedToday: 'Completado hoy',
     },
   };
 
@@ -380,10 +342,7 @@ export default function App() {
           <AntDesign name="menu-fold" size={24} color={themeStyles.iconColor} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Image
-            source={require('./assets/icon.png')}
-            style={styles.appIcon}
-          />
+          <Image source={require('./assets/icon.png')} style={styles.appIcon} />
           <View style={styles.pointsContainer}>
             <AntDesign name="star" size={20} color="#FFD700" />
             <Text style={[styles.headerText, themeStyles.title]}>{points}</Text>
@@ -416,37 +375,73 @@ export default function App() {
           placeholderTextColor={themeStyles.placeholderColor}
         />
         <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowHabitSelector(true)}
+          style={[styles.importantButton, { backgroundColor: isImportant ? '#FFD700' : '#ccc' }]}
+          onPress={() => setIsImportant(!isImportant)}
         >
-          <Text style={styles.addButtonText}>{getText('add')}</Text>
+          <Text style={styles.importantButtonText}>{getText('important')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => {
+            if (newHabit.trim() === '') {
+              setShowHabitSelector(true);
+            } else {
+              addNewHabit(false);
+            }
+          }}
+        >
+          <Text style={styles.addButtonText}>
+            {newHabit.trim() === '' ? getText('add') : '✓'}
+          </Text>
         </TouchableOpacity>
       </View>
 
       <Modal visible={menuVisible} animationType="slide" transparent={true}>
         <View style={[styles.menuContainer, themeStyles.menuContainer]}>
-          <TouchableOpacity
-            style={styles.menuClose}
-            onPress={() => setMenuVisible(false)}
-          >
+          <TouchableOpacity style={styles.menuClose} onPress={() => setMenuVisible(false)}>
             <AntDesign name="close" size={24} color={themeStyles.menuIconColor} />
           </TouchableOpacity>
           <Text style={[styles.sectionTitle, themeStyles.menuText]}>{getText('habits')}</Text>
+          {/* Отображение важных привычек */}
+          {todayHabits.filter(h => h.isImportant).length > 0 && (
+            <View style={styles.importantHabitsContainer}>
+              <Text style={[styles.subSectionTitle, themeStyles.menuText]}>
+                {getText('important')}:
+              </Text>
+              {todayHabits.filter(h => h.isImportant).map(h => (
+                <Text key={h.id} style={[styles.importantHabitText, { color: '#000' }]}>
+                  {h.title}
+                </Text>
+              ))}
+            </View>
+          )}
           <FlatList
             data={savedHabits}
             renderItem={renderSavedHabit}
             keyExtractor={item => item.id}
             style={styles.list}
           />
+          {/* Статистика выполненных привычек */}
+          <View style={styles.statsContainer}>
+            <Text style={[styles.menuText, themeStyles.menuText]}>
+              {getText('completedToday')}: {completedToday}
+            </Text>
+          </View>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => { setShowSettings(true); setMenuVisible(false); }}
+            onPress={() => {
+              setShowSettings(true);
+              setMenuVisible(false);
+            }}
           >
             <Text style={[styles.menuText, themeStyles.menuText]}>{getText('settings')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => { setShowStore(true); setMenuVisible(false); }}
+            onPress={() => {
+              setShowStore(true);
+              setMenuVisible(false);
+            }}
           >
             <Text style={[styles.menuText, themeStyles.menuText]}>{getText('store')}</Text>
           </TouchableOpacity>
@@ -491,32 +486,9 @@ export default function App() {
           </View>
           <View style={styles.settingsOption}>
             <Text style={themeStyles.text}>{getText('language')}</Text>
-            <TouchableOpacity
-              style={styles.themeButton}
-              onPress={() => setShowLanguageModal(true)}
-            >
+            <TouchableOpacity style={styles.themeButton} onPress={() => setShowLanguageModal(true)}>
               <Text style={themeStyles.text}>
                 {language === 'ru' ? 'Русский' : language === 'en' ? 'English' : 'Español'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.settingsOption}>
-            <Text style={themeStyles.text}>{getText('notificationsEnabled')}</Text>
-            <TouchableOpacity
-              style={styles.themeButton}
-              onPress={async () => {
-                const newValue = !notificationsEnabled;
-                setNotificationsEnabled(newValue);
-                await saveData();
-                if (!newValue) {
-                  await Notifications.cancelAllScheduledNotificationsAsync();
-                } else {
-                  await scheduleDailyNotification();
-                }
-              }}
-            >
-              <Text style={themeStyles.text}>
-                {notificationsEnabled ? 'On' : 'Off'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -619,14 +591,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   pointsContainer: { flexDirection: 'row', alignItems: 'center' },
   livesContainer: { flexDirection: 'row', alignItems: 'center', marginLeft: 10 },
   headerText: { fontSize: 18, marginLeft: 5 },
   appIcon: { width: 32, height: 32, marginRight: 10 },
   sectionTitle: { paddingHorizontal: 20, marginBottom: 10 },
-  inputContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20 },
-  input: { flex: 1, borderWidth: 1, borderRadius: 5, padding: 10, marginRight: 10 },
+  inputContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 5,
+    padding: 10,
+    marginRight: 10,
+  },
+  importantButton: {
+    padding: 10,
+    borderRadius: 5,
+    marginRight: 10,
+  },
+  importantButtonText: { color: '#000', fontSize: 14 },
   addButton: {
     width: 40,
     height: 40,
@@ -680,4 +670,8 @@ const styles = StyleSheet.create({
   buyButton: { padding: 5, backgroundColor: '#007AFF', borderRadius: 5, marginTop: 5 },
   purchasedButton: { backgroundColor: '#666' },
   buyButtonText: { color: '#fff', textAlign: 'center' },
+  importantHabitsContainer: { paddingHorizontal: 20, marginBottom: 10 },
+  subSectionTitle: { fontSize: 16, fontWeight: 'bold' },
+  importantHabitText: { fontSize: 14, marginVertical: 2 },
+  statsContainer: { paddingHorizontal: 20, marginVertical: 10 },
 });
