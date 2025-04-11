@@ -1,10 +1,19 @@
 import { StatusBar } from 'expo-status-bar';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput, Modal, Button, Image, Alert, BackHandler } from 'react-native';
+import {StyleSheet,Text,View,FlatList,TouchableOpacity,TextInput,Modal,Button,Image,Alert,BackHandler} from 'react-native';
 import { useState, useEffect } from 'react';
 import * as FileSystem from 'expo-file-system';
+import * as Notifications from 'expo-notifications';
 
 const FILE_PATH = `${FileSystem.documentDirectory}appData.json`;
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function App() {
   const [savedHabits, setSavedHabits] = useState([]);
@@ -22,7 +31,8 @@ export default function App() {
   const [lives, setLives] = useState(3);
   const [purchases, setPurchases] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [completedToday, setCompletedToday] = useState(0); // Новый счетчик выполненных привычек
+  const [completedToday, setCompletedToday] = useState(0);
+  const [streaks, setStreaks] = useState({}); 
 
   const daysOfWeek = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
@@ -32,10 +42,18 @@ export default function App() {
     { id: '3', name: '6 Lives', cost: 130, lives: 6 },
   ];
 
+  const streakRewards = {
+    3: 10, // 10 points for 3-day streak
+    5: 20, // 20 points for 5-day streak
+    10: 50, // 50 points for 10-day streak
+  };
+
   useEffect(() => {
     async function initializeApp() {
       await loadData();
       await checkNewDay();
+      await requestNotificationPermissions();
+      await scheduleDailyReminder();
     }
     initializeApp();
 
@@ -66,6 +84,32 @@ export default function App() {
     };
   }, []);
 
+  const requestNotificationPermissions = async () => {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        getText('notificationPermissionTitle'),
+        getText('notificationPermissionMessage')
+      );
+    }
+  };
+
+  const scheduleDailyReminder = async () => {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    const trigger = {
+      hour: 20, // 8 PM
+      minute: 0,
+      repeats: true,
+    };
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: getText('reminderTitle'),
+        body: getText('reminderBody'),
+      },
+      trigger,
+    });
+  };
+
   const checkNewDay = async () => {
     const today = new Date().toISOString().split('T')[0];
     if (today !== currentDate) {
@@ -73,11 +117,33 @@ export default function App() {
       if (penalty > 0) {
         setPoints(prev => Math.max(0, prev - penalty));
       }
+      // Update streaks
+      const newStreaks = { ...streaks };
+      savedHabits.forEach(habit => {
+        const wasCompletedToday = todayHabits.some(
+          h => h.id.split('-')[0] === habit.id && h.status === 'completed'
+        );
+        if (wasCompletedToday) {
+          newStreaks[habit.id] = (newStreaks[habit.id] || 0) + 1;
+          // Award streak bonuses
+          if (streakRewards[newStreaks[habit.id]]) {
+            setPoints(prev => prev + streakRewards[newStreaks[habit.id]]);
+            Alert.alert(
+              getText('streakRewardTitle'),
+              `${getText('streakRewardMessage')} ${newStreaks[habit.id]} ${getText('days')}! +${streakRewards[newStreaks[habit.id]]} ${getText('points')}`
+            );
+          }
+        } else {
+          newStreaks[habit.id] = 0; // Reset streak if not completed
+        }
+      });
+      setStreaks(newStreaks);
       setTodayHabits([]);
       setPurchases([]);
-      setCompletedToday(0); // Сбрасываем счетчик выполненных привычек
+      setCompletedToday(0);
       setCurrentDate(today);
       await saveData();
+      await scheduleDailyReminder();
     }
   };
 
@@ -91,12 +157,13 @@ export default function App() {
         purchases,
         theme,
         language,
-        completedToday, // Сохраняем счетчик
+        completedToday,
+        streaks,
       };
       await FileSystem.writeAsStringAsync(FILE_PATH, JSON.stringify(data));
     } catch (error) {
       console.error('Failed to save data:', error);
-      alert('Ошибка сохранения данных: ' + error.message);
+      Alert.alert('Ошибка сохранения данных: ' + error.message);
     }
   };
 
@@ -114,17 +181,19 @@ export default function App() {
         setTheme(parsedData.theme || 'light');
         setLanguage(parsedData.language || 'ru');
         setCompletedToday(parsedData.completedToday || 0);
+        setStreaks(parsedData.streaks || {});
       } else {
         setPoints(0);
         setLives(3);
         setTheme('light');
         setLanguage('ru');
         setCompletedToday(0);
+        setStreaks({});
         await saveData();
       }
     } catch (error) {
       console.error('Failed to load data:', error);
-      alert('Ошибка загрузки данных: ' + error.message);
+      Alert.alert('Ошибка загрузки данных: ' + error.message);
     }
   };
 
@@ -146,6 +215,7 @@ export default function App() {
     if (saveToSaved) {
       newSavedHabits = [...savedHabits, habitObj];
       setSavedHabits(newSavedHabits);
+      setStreaks(prev => ({ ...prev, [habitObj.id]: 0 }));
     }
     newTodayHabits = [...todayHabits, { ...habitObj, id: `${habitObj.id}-${currentDate}` }];
     setTodayHabits(newTodayHabits);
@@ -167,15 +237,27 @@ export default function App() {
   };
 
   const completeHabit = async (id) => {
-    setTodayHabits(prev => prev.filter(habit => habit.id !== id));
-    setPoints(prev => prev + 5);
-    setCompletedToday(prev => prev + 1); // Увеличиваем счетчик выполненных
-    await saveData();
+    const habit = todayHabits.find(h => h.id === id);
+    if (habit) {
+      setTodayHabits(prev =>
+        prev.map(h =>
+          h.id === id ? { ...h, status: 'completed' } : h
+        )
+      );
+      setPoints(prev => prev + 5);
+      setCompletedToday(prev => prev + 1);
+      await saveData();
+    }
   };
 
   const deleteSavedHabit = async (id) => {
     setSavedHabits(prev => prev.filter(habit => habit.id !== id));
     setTodayHabits(prev => prev.filter(habit => habit.id.split('-')[0] !== id));
+    setStreaks(prev => {
+      const newStreaks = { ...prev };
+      delete newStreaks[id];
+      return newStreaks;
+    });
     await saveData();
   };
 
@@ -194,7 +276,7 @@ export default function App() {
         styles.habitItem,
         {
           backgroundColor: item.isImportant
-            ? '#FFFF99' // Желтый для важных
+            ? '#FFFF99'
             : theme === 'light'
             ? '#fff'
             : '#333',
@@ -207,6 +289,10 @@ export default function App() {
       >
         <Text style={{ color: item.isImportant ? '#000' : theme === 'light' ? '#000' : '#fff' }}>
           {item.title}
+          {item.status === 'completed' ? ` ✓` : ''}
+        </Text>
+        <Text style={styles.streakText}>
+          {getText('streak')}: {streaks[item.id.split('-')[0]] || 0} {getText('days')}
         </Text>
       </TouchableOpacity>
     </View>
@@ -219,7 +305,10 @@ export default function App() {
         onPress={() => addSavedHabitToToday(item)}
       >
         <Text style={{ color: theme === 'light' ? '#000' : '#fff' }}>
-          {item.title} {item.isImportant && '(Важно)'}
+          {item.title} {item.isImportant && `(${getText('important')})`}
+        </Text>
+        <Text style={styles.streakText}>
+          {getText('streak')}: {streaks[item.id] || 0} {getText('days')}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -233,7 +322,9 @@ export default function App() {
 
   const renderStoreItem = ({ item }) => (
     <View style={styles.storeItem}>
-      <Text style={themeStyles.text}>{item.name} - {item.cost} {getText('points')}</Text>
+      <Text style={themeStyles.text}>
+        {item.name} - {item.cost} {getText('points')}
+      </Text>
       <TouchableOpacity
         style={[styles.buyButton, purchases.includes(item.id) && styles.purchasedButton]}
         onPress={() => buyItem(item)}
@@ -274,6 +365,14 @@ export default function App() {
       exit: 'Выйти',
       important: 'Важная',
       completedToday: 'Выполнено сегодня',
+      streak: 'Серия',
+      days: 'дней',
+      reminderTitle: 'Напоминание о привычках',
+      reminderBody: 'Не забудьте выполнить свои привычки сегодня!',
+      notificationPermissionTitle: 'Разрешение на уведомления',
+      notificationPermissionMessage: 'Пожалуйста, разрешите уведомления для напоминаний о привычках.',
+      streakRewardTitle: 'Награда за серию!',
+      streakRewardMessage: 'Поздравляем! Вы выполнили привычку',
     },
     en: {
       today: 'Today',
@@ -302,6 +401,14 @@ export default function App() {
       exit: 'Exit',
       important: 'Important',
       completedToday: 'Completed today',
+      streak: 'Streak',
+      days: 'days',
+      reminderTitle: 'Habit Reminder',
+      reminderBody: 'Don’t forget to complete your habits today!',
+      notificationPermissionTitle: 'Notification Permission',
+      notificationPermissionMessage: 'Please allow notifications for habit reminders.',
+      streakRewardTitle: 'Streak Reward!',
+      streakRewardMessage: 'Congratulations! You’ve completed the habit for',
     },
     es: {
       today: 'Hoy',
@@ -330,6 +437,14 @@ export default function App() {
       exit: 'Salir',
       important: 'Importante',
       completedToday: 'Completado hoy',
+      streak: 'Racha',
+      days: 'días',
+      reminderTitle: 'Recordatorio de Hábitos',
+      reminderBody: '¡No olvides completar tus hábitos hoy!',
+      notificationPermissionTitle: 'Permiso de Notificaciones',
+      notificationPermissionMessage: 'Por favor, permite las notificaciones para recordatorios de hábitos.',
+      streakRewardTitle: '¡Recompensa por Racha!',
+      streakRewardMessage: '¡Felicidades! Has completado el hábito durante',
     },
   };
 
@@ -402,7 +517,6 @@ export default function App() {
             <AntDesign name="close" size={24} color={themeStyles.menuIconColor} />
           </TouchableOpacity>
           <Text style={[styles.sectionTitle, themeStyles.menuText]}>{getText('habits')}</Text>
-          {/* Отображение важных привычек */}
           {todayHabits.filter(h => h.isImportant).length > 0 && (
             <View style={styles.importantHabitsContainer}>
               <Text style={[styles.subSectionTitle, themeStyles.menuText]}>
@@ -421,7 +535,6 @@ export default function App() {
             keyExtractor={item => item.id}
             style={styles.list}
           />
-          {/* Статистика выполненных привычек */}
           <View style={styles.statsContainer}>
             <Text style={[styles.menuText, themeStyles.menuText]}>
               {getText('completedToday')}: {completedToday}
@@ -674,4 +787,5 @@ const styles = StyleSheet.create({
   subSectionTitle: { fontSize: 16, fontWeight: 'bold' },
   importantHabitText: { fontSize: 14, marginVertical: 2 },
   statsContainer: { paddingHorizontal: 20, marginVertical: 10 },
+  streakText: { fontSize: 12, color: '#666', marginTop: 5 },
 });
