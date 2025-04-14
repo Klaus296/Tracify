@@ -1,19 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet,TextInput SafeAreaView,Modal } from 'react-native';
 
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Привіт, React Native!</Text>
-      <Text style={styles.subtitle}>Це початок твого застосунку.</Text>
-    </SafeAreaView>
+    <View style={styles.conteiner}>
+       
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'black',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
