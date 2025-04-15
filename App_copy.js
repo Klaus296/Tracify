@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet,TextInput SafeAreaView,Modal } from 'react-native';
 import AntDesign from '@expo/vector-icons/AntDesign';
+const {setProgram, showProgram} = useState(false)
 export default function App() {
   return (
     <View style={styles.conteiner}>
@@ -12,7 +13,13 @@ export default function App() {
     </View>
   );
 }
-
+function createGymProgram(){
+  return(
+    <Modal vidible = {showProgram}>
+       <Text>Your program</Text>
+    </Modal>
+  )
+}
 const styles = StyleSheet.create({
   container: {
     flex: 1,
