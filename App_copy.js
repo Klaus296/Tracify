@@ -1,9 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet,TextInput SafeAreaView,Modal } from 'react-native';
-
+import AntDesign from '@expo/vector-icons/AntDesign';
 export default function App() {
   return (
     <View style={styles.conteiner}>
+       <AntDesign name="addfile" size={24} color="black" />
+       <MaterialCommunityIcons name="food-variant" size={24} color="black" />
+    
+       <AntDesign name="menuunfold" size={24} color="black" />
        
     </View>
   );
