@@ -9,7 +9,7 @@ export default function App() {
 
   const [exerciseInput, setExerciseInput] = useState('');
   const [exerciseList, setExerciseList] = useState([]);
-
+  
   const [foodInput, setFoodInput] = useState('');
   const [foodList, setFoodList] = useState([]);
 
@@ -28,13 +28,18 @@ export default function App() {
   };
 
   const keyExtractor = (item, index) => index.toString();
+  const secondKey = (obj,index)=>index.toString();
   const renderItem = ({ item }) => <Text style={styles.listItem}>{item}</Text>;
-
+  const days = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"]
   return (
     <View style={styles.container}>
-      {/* Модальне вікно програми тренувань */}
       <Modal visible={showProgram} transparent={true} animationType="slide">
         <View style={styles.modalContainer}>
+          <FlatList
+            data={days}
+            keyExtractor = {secondKey}
+            renderItem = {}
+          />
           <Text style={styles.title}>Твоя програма</Text>
           <FlatList
             data={exerciseList}
@@ -57,7 +62,6 @@ export default function App() {
         </View>
       </Modal>
 
-      {/* Модальне вікно харчування */}
       <Modal visible={showEatPlan} transparent={true} animationType="slide">
         <View style={styles.modalContainer}>
           <Text style={styles.title}>План харчування</Text>
@@ -82,7 +86,6 @@ export default function App() {
         </View>
       </Modal>
 
-      {/* Нижня панель з кнопками */}
       <View style={styles.bottomBar}>
         <TouchableOpacity onPress={() => setProgram(true)} style={styles.iconButton}>
           <AntDesign name="addfile" size={24} color="white" />
