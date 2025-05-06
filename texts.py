@@ -1,0 +1,1 @@
+first_text = ["Hello, World!", "This is a test.", "How are you?"]
