@@ -312,11 +312,24 @@ def cheet():
     global frame, health_rect
     frame+=1
     if frame >=30:
-        health_rect.rect.width -= 1
+        hero.rect.x = randint(200,WINDOW_WIDTH-200)
+        health_rect.rect.width -= 0.5
         frame = 0
+water_ball = Picture(os.path.join("picture","water_ball.png"),0,0,50,50)
+tem_switch = "start"
 def tem_hide():
-    global temarius
-    temarius.rect.width = 0
+    global water_ball,hero,tem_switch,temarius,WINDOW_HEIGHT
+    water_ball.show()
+    if tem_switch == "start":
+        water_ball.rect.x = temarius.rect.x-10
+        water_ball.rect.y = temarius.rect.y-10
+        tem_switch = "stop"
+    if tem_switch == "stop":
+        water_ball.rect.y+=15
+    if water_ball.rect.y >= WINDOW_HEIGHT:
+        tem_switch = "start"
+    if water_ball.colliderect(hero):
+        health_rect.rect.width -= 3
 
 
 def fight(main, enemy, health, enemy_attacks=[]):
@@ -353,9 +366,13 @@ def fight(main, enemy, health, enemy_attacks=[]):
     if enemy_attacks:
         enemy_attacks[m]()
     if frame >= 90:
-        frame, m = 0, randint(0, len(enemy_attacks) - 1)
-
-    if health.rect.width <= 0:
+        previous_m = m
+        while True:
+            m = randint(0, len(enemy_attacks) - 1)
+            if m != previous_m:  # Ensure the new attack is not the same as the previous one
+                break
+        frame = 0
+    if enemy_health.rect.width <=0:
         k += 1
         health.rect.width = health_rect.rect.width = 200
         
@@ -407,77 +424,17 @@ def the_end():
     window.fill((0, 0, 0))
     to_menu.fill()
     set_text("Меню", to_menu.rect.x+10, to_menu.rect.y+10, (0, 0, 0), font_size=30)
-def temarius_fight():
-    
-    if set_pause:
-        pause_game()
-    else:
-        global k, temarius, fight_frame, hero, rand, temarius_health, keys,m,circle,background,enemy_person, enemy_health,WINDOW_HEIGHT,set_attacks,set_run,line
-        enemy_person = temarius
-        enemy_health = temarius_health
-        set_attacks = False
-        set_run = False
-        temarius.animate_walking()
-        temarius_health.fill()
-        
-        temarius.show()
-        set_text(line,0,310, (255, 255, 255), font_size=30)
-        if frame <=70:
-            hero.direction = "right"
-            temarius.direction = "left"
-            
-        fight_frame+=1
-        if fight_frame >= 70:
-            fire_attack(temarius, temarius_health)
-        if fight_frame >=150:
-            temarius.rect.x = hero.rect.x-100
-            health_rect.rect.width -= 50
-            gate.show()
-            gate.rect.x = hero.rect.x-100
-            gate.rect.y = hero.rect.y-100
-        if fight_frame >= 165:
-            temarius.rect.x = WINDOW_WIDTH-200
-            k+=1
-            fight_frame = 0
-def temarius_fight2():
-    if set_pause:
-        pause_game()
-    else:
-        global k, temarius, fight_frame, hero, rand, temarius_health, keys,m,circle,enemy_person, enemy_health,WINDOW_HEIGHT,set_menu,the_end_window
-        enemy_health = temarius_health
-        enemy_person = temarius
-        temarius_health.fill()
-        temarius.show()
-        fight_frame += 1
-        if fight_frame <=20:
-            gate.show()
-        if fight_frame >= 20:
-            hero.direction = "right"
-            hero.animate_walking()
-            hero.rect.x += 3
-        if fight_frame >= 30:
-            needle.show()
-            temarius.rect.y = hero.rect.y
-            needle.rect.x = 400
-            needle.rect.y = 400
-            hero.shadow(temarius, temarius_health)
-            if hero.colliderect(temarius):
-                temarius.rect.x = randint(200, WINDOW_WIDTH - 200)
-        if fight_frame >= 100:
-            hero.rect.x = needle.rect.x
-            hero.rect.y = 150
-            needle.rect.y = hero.rect.y
-            temarius.rect.x = hero.rect.x+300
-        if fight_frame >= 120:
-            the_end_window = True
-            
+
+
 def warNolar_show():
-    global warNolar,frame,k
+    global warNolar,frame,k,enemy_health,enemy_person
     warNolar.show()
     frame+=1
     if frame >=70:
         warNolar.rect.x -=5
     if frame>=100:
+        enemy_person = temarius
+        enemy_health = temarius_health
         k+=1
 purple_circle = Picture(os.path.join("picture","purple_circle.png"), 0, 0, 150, 150)
 second_text = ["Ти потрапив до пещери...","Тобі потрібно забрати атефакт вогню, який стане твоєю силою","Збери усі фрагменти, для того щоб з'явився сундук","Успіхів"]
@@ -510,11 +467,17 @@ seijiro_attacks = [
     lambda: seijiro.shadow(hero, enemy_health=health_rect)
 ]
 # списки атак босів
-temarius_attack = [lambda: needle_attack(),lambda:cheet()]
+temarius_attack = [lambda: needle_attack(), lambda:tem_hide(),lambda:falling_bones_attack(hero)]
 warNolar_attacks = [lambda:return_to_sender(),lambda:war_defance(),lambda:needle_attack()]
-way = Picture(os.path.join("picture","pixilart-drawing (8).png"))
+way = Picture(os.path.join("picture","pixilart-drawing (8).png"),500,300,200,120)
 def cor():
-
+    global way,hero, k
+    way.show()
+    if hero.rect.x>=WINDOW_WIDTH-120:
+        k+=1
+def set_win_menu():
+    global set_menu
+    set_menu = True
 # створення сюжетного листа
 plot_list = [lambda:start(),lambda:show_text(first_text, 10, 10, font_size=30, show_items=[farian]),lambda:end(),
              lambda:show_text(second_text, 10, 10, font_size=30),
@@ -523,13 +486,14 @@ plot_list = [lambda:start(),lambda:show_text(first_text, 10, 10, font_size=30, s
              lambda:show_text(before_first_fight,10,10,font_size=30),
              lambda:fight(hero,seijiro,seijiro_health,enemy_attacks=seijiro_attacks),lambda:show_text(before_second_fight,10,10,font_size=30),
              lambda:fight(hero,seijiro,seijiro_health,enemy_attacks=seijiro_attacks),
-             lambda:show_text(after_fight_text,10,10,font_size=30),
+             lambda:show_text(after_fight_text,10,10,font_size=30),lambda:cor(),
              lambda:after_fight(),lambda:warNolar_show(),lambda:show_text(warNolar_text,10,10,font_size=30,show_items=[warNolar]),
-             lambda: fight(hero,warNolar,warNolar_health, enemy_attacks=warNolar_attacks),
+             lambda: fight(hero,warNolar,warNolar_health, enemy_attacks=warNolar_attacks),lambda:cor(),
              lambda:show_text(temarius_text,10,10,font_size=30),lambda:in_his_town(),
-             lambda:temarius_fight(),lambda:temarius_fight2(),lambda:fight(hero,enemy_person,enemy_health,enemy_attacks=temarius_attack)
+             lambda:fight(hero,temarius,temarius_health,enemy_attacks=temarius_attack),
+             lambda:set_win_menu()
              ]
-k = 15
+k = 0
 def plot():
     global k, url, background, hero, plot_list, e, quad
     plot_list[k]()
@@ -584,7 +548,7 @@ enemy_health = seijiro_health
 set_attacks = True
 set_run = True
 set_menu = True
-the_end_window = False
+
 boss_fight_start = False
 while running:
     mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -604,19 +568,18 @@ while running:
                     set_pause = False
                     set_attacks = True
                     set_run = True
-                    the_end_window = False
+
                 if to_menu.rect.collidepoint(mouse_x, mouse_y): 
                     set_menu = True
                     set_pause = False
                     set_attacks = False
                     set_run = False
-                    the_end_window = False
                 if to_boss.rect.collidepoint(mouse_x, mouse_y):
                     k+=1
                     background = Picture(os.path.join("picture","7.png"))
                     set_run = True
                     set_attacks = True
-                    the_end_window = False
+
         if set_attacks:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_f:
@@ -630,6 +593,9 @@ while running:
                         k+=1
     
     if set_menu:
+        if k>16:
+            k = 0
+            set_menu=True
         set_run = False
         set_attacks = False
         set_pause = False
@@ -646,15 +612,7 @@ while running:
         clock.tick(FPS)
         pygame.display.update()
         clock.tick(FPS)
-    elif the_end_window:
-        the_end()
-        set_text("Ось так все і закінчилося. Спробуй довести інше. ", 50, 300, (255, 255, 255), font_size=50)
-        set_text("Темаріус сильніший за головного героя без імені.", 50, 340, (255, 255, 255), font_size=50)
-        set_text("Ти можешь сразитися з Темаріусом натиснувши 'Boss fight'", 50, 380, (255, 255, 255), font_size=50)
-        to_boss.fill()
-        set_text("Boss fight", to_boss.rect.x+10, to_boss.rect.y+10, (0, 0, 0), font_size=40)
-        pygame.display.update()
-        clock.tick(FPS)
+
     else:
         background.show()
         pause.show()
@@ -662,7 +620,9 @@ while running:
             k+=1
             hero.rect.x = 200
             a = 0
-        
+        # if fight(hero,temarius,temarius_health,enemy_attacks=temarius_attack):
+        #     enemy_person = temarius
+        #     enemy_health = temarius_health
         leaf.show()
         leaf.max_frame_count = 30
         leaf.animate_walking()
