@@ -280,6 +280,17 @@ def second_exam():
             frame = 0
             background = Picture(os.path.join('picture','4.jpg'), 0, 0, 1200, 600)
 seijiro = Hero(frames=seijirou_frame, x=-200, y=WINDOW_HEIGHT-150, width=100, height=110)
+def needle_attack():
+    global needle, hero, health_rect, frame
+    needle.show()
+    frame += 1
+    if frame % 50 == 0:  # Шипы появляются каждые 50 кадров
+        needle.rect.x = randint(0, WINDOW_WIDTH - needle.rect.width)
+        needle.rect.y = WINDOW_HEIGHT - needle.rect.height
+
+    if hero.colliderect(needle):
+        health_rect.rect.width -= 2  # Уменьшаем здоровье героя при столкновении
+
 fr = 0
 def in_water_town():
     if set_pause:
@@ -296,60 +307,68 @@ def in_water_town():
         seijiro.rect.x += 5
 seijiro_health = Area(0, 0, 200, 20, (255, 0, 0))
 m = randint(0,2)
-def first_fight():
+rand_x = randint(0, WINDOW_WIDTH - 200)
+def cheet():
+    global frame, health_rect
+    frame+=1
+    if frame >=30:
+        health_rect.rect.width -= 1
+        frame = 0
+def tem_hide():
+    global temarius
+    temarius.rect.width = 0
+
+
+def fight(main, enemy, health, enemy_attacks=[]):
+    global k, frame, m, frame_lose, health_rect, line, rand_x, fire
     if set_pause:
         pause_game()
-    else:
-        global k, seijiro, frame, hero, rand, seijiro_health, keys,m,circle,enemy_person, enemy_health,WINDOW_HEIGHT,frame_lose,line
-        hero.speed = 8
-        enemy_health = seijiro_health
-        enemy_person = seijiro
-        seijiro_health.fill()
-        seijiro.rect.y = 200
-        set_text(line,0,310, (255, 255, 255), font_size=30)
-        seijiro.show()
-        frame += 1
-        if m==0:
-            seijiro.defance([hero])
-        if m==1:
-            falling_bones_attack(hero)
-        if m==2:
-            seijiro.shadow(hero, health_rect)
-        if m!=0:
-            seijiro.rect.y=WINDOW_HEIGHT-150
-        if frame >= 90:
-            frame = 0
-            m = randint(0, 2)
-        if hero.rect.x >= seijiro.rect.x:
-            seijiro.direction = "left"
-        elif hero.rect.x < seijiro.rect.x:
-            seijiro.direction = "right"
-        seijiro.animate_walking()
-        if hero.colliderect(seijiro):
-            rand = randint(200, WINDOW_WIDTH - 200)
-            seijiro.rect.x = rand
-        if health_rect.rect.width <= 0:        
-            frame_lose += 1
-            window_lose()
-            if frame_lose >= 100:
-                health_rect.rect.width = 200
-                seijiro_health.rect.width = 200
-                frame_lose = 0
+        return
+    if enemy.rect.x <= rand_x:
+        enemy.rect.x += 5.5
+        enemy.direction = "right"
+    if enemy.rect.x >= rand_x:
+        enemy.rect.x -= 5.5
+        enemy.direction = "left"
+    if enemy.rect.x == rand_x:
+        rand_x = randint(200, WINDOW_WIDTH - 200)
+    health.fill()
+    enemy.rect.y = 200
+    set_text(line, 0, 310, (255, 255, 255), font_size=30)
+    enemy.direction = "left" if main.rect.x >= enemy.rect.x else "right"
+    enemy.animate_walking()
 
-        if seijiro_health.rect.width <= 0:
-            k += 1
-            seijiro_health.rect.width = 200
-            health_rect.rect.width = 200
-            print("You win!")
-def second_fight():
-    first_fight()
-    seijiro.damage = 1.7
+    if main.colliderect(enemy):
+        enemy.rect.x = randint(200, WINDOW_WIDTH - 200)
+
+    if health_rect.rect.width <= 0:
+        frame_lose += 1
+        window_lose()
+        if frame_lose >= 100:
+            health_rect.rect.width = health.rect.width = 200
+            frame_lose = 0
+
+    frame += 1
+    enemy.show()
+    if enemy_attacks:
+        enemy_attacks[m]()
+    if frame >= 90:
+        frame, m = 0, randint(0, len(enemy_attacks) - 1)
+
+    if health.rect.width <= 0:
+        k += 1
+        health.rect.width = health_rect.rect.width = 200
+        
+
+
 def after_fight():
     if set_pause:
         pause_game()
     else:
-        global k, hero, WINDOW_WIDTH,portal
+        global k, hero, WINDOW_WIDTH,portal, warNolar, warNolar_health, enemy_person, enemy_health
         portal.show()
+        enemy_person = warNolar
+        enemy_health = warNolar_health
         if hero.colliderect(portal):
             k += 1
             hero.rect.x = WINDOW_WIDTH/2 - hero.rect.width
@@ -383,15 +402,24 @@ temarius = Hero(frames=temarius_frame, x=hero.rect.x, y=200, width=100, height=1
 temarius_health = Area(0, 0, 200, 20, (255, 0, 0))
 fight_frame = 0
 gate = Picture(os.path.join("picture","gate.png"), 0, 0, 200, 200)
+def the_end():
+    global to_menu
+    window.fill((0, 0, 0))
+    to_menu.fill()
+    set_text("Меню", to_menu.rect.x+10, to_menu.rect.y+10, (0, 0, 0), font_size=30)
 def temarius_fight():
+    
     if set_pause:
         pause_game()
     else:
-        global k, temarius, fight_frame, hero, rand, temarius_health, keys,m,circle,enemy_person, enemy_health,WINDOW_HEIGHT,set_attacks,set_run,line
+        global k, temarius, fight_frame, hero, rand, temarius_health, keys,m,circle,background,enemy_person, enemy_health,WINDOW_HEIGHT,set_attacks,set_run,line
+        enemy_person = temarius
+        enemy_health = temarius_health
         set_attacks = False
         set_run = False
         temarius.animate_walking()
         temarius_health.fill()
+        
         temarius.show()
         set_text(line,0,310, (255, 255, 255), font_size=30)
         if frame <=70:
@@ -411,12 +439,11 @@ def temarius_fight():
             temarius.rect.x = WINDOW_WIDTH-200
             k+=1
             fight_frame = 0
-            # Не забудь додати текст розмови
 def temarius_fight2():
     if set_pause:
         pause_game()
     else:
-        global k, temarius, fight_frame, hero, rand, temarius_health, keys,m,circle,enemy_person, enemy_health,WINDOW_HEIGHT,set_menu
+        global k, temarius, fight_frame, hero, rand, temarius_health, keys,m,circle,enemy_person, enemy_health,WINDOW_HEIGHT,set_menu,the_end_window
         enemy_health = temarius_health
         enemy_person = temarius
         temarius_health.fill()
@@ -442,8 +469,17 @@ def temarius_fight2():
             needle.rect.y = hero.rect.y
             temarius.rect.x = hero.rect.x+300
         if fight_frame >= 120:
-            set_menu = True
-    
+            the_end_window = True
+            
+def warNolar_show():
+    global warNolar,frame,k
+    warNolar.show()
+    frame+=1
+    if frame >=70:
+        warNolar.rect.x -=5
+    if frame>=100:
+        k+=1
+purple_circle = Picture(os.path.join("picture","purple_circle.png"), 0, 0, 150, 150)
 second_text = ["Ти потрапив до пещери...","Тобі потрібно забрати атефакт вогню, який стане твоєю силою","Збери усі фрагменти, для того щоб з'явився сундук","Успіхів"]
 first_text = ["Привіт!", "Чому ти тут гуляєшь так пізно?", "Я зрозумів...","Ти шукаєш артефакт","Тоді заходь у портал, я поясню що робити."]
 warnining = ["О ніііі!!!","Схоже ворог зрозумів, що ти отримав арефакт","Зараз вони точно атакують тебе...","Використовуй літаючі платформи щоб не торкатися землі, бо це небезпечно!","Жителі міста води врятують тебе, а поки стрибай по платформам. Успіхів!"]
@@ -451,20 +487,49 @@ talk_with_human = ["Привіт! Мені ледь вдалося тебе вр
 before_first_fight = ["Добрий день! Мене звати Сейджуро, і я навчу тебе вікористовувати свою силу.","Мене просто попросили...","Я не знаю чому, але я відчуваю, що ти можеш стати сильним.","Ти повинен навчитися використовувати свою силу, щоб перемогти Темаріуса.","Але спочатку як битися. Тобі знадобиться \n всього три клавіші: f - атака, g - захист, h - сховатися. Ти можешь побачити більше детальніше про них\n натиснувши на кпопку з трьома лініями. Але зараз ти ми подивимося як швидки ти розумієшь.","До бою!"]
 before_second_fight = ["Ти молодець!","Тепер ти можеш використовувати свою силу, щоб перемогти Темаріуса.","Не думав що ти так швидко вчишся.","Схоже тільки на тебе вся надія. Щоб краще це перевірити, я буду битися сильніше!","До бою!"]
 after_fight_text = ["Сейджуро зник....","Ти переміг його!","Але він сказав, що ти повинен перемогти Темаріуса.","Тепер ти можеш йти далі. Ти молодець!","Заходь у портал щоб, повернутися до твого рідного місечка"]
-temarius_text = ["Я чекав на тебе...","Мені так легко вдалося захопити твоє містечко. А ти втік, залишивши його у біді","Але зараз не до цього, мені лише потрібен твій артефакт","**Схоже Темаріус збирається атакувати, тобі потрібно тікати від ігол під тобою, інакше вони тебе знищать.**"]
+warNolar_text = ["Я чекав на тебе...","Мені так легко вдалося захопити твоє містечко. А ти втік, залишивши його у біді","Але зараз не до цього, мені лише потрібен твій артефакт","**Схоже Темаріус збирається атакувати, тобі потрібно тікати від ігол під тобою, інакше вони тебе знищать.**"]
+temarius_text = ["Темаріус: Я чекав на тебе...","Я знаю, що ти можеш перемогти мене, але я не дам тобі цього зробити.","Ти повинен пройти через мене, щоб дістатися до артефакту.","Але я не дам тобі цього зробити!"]
+health_rect = Area(WINDOW_WIDTH-220,10, 200, 20, (255, 0, 0))
+warNolar_health = Area(0, 0, 200, 20, (255, 0, 0))
+def return_to_sender():
+    global fire, hero, warNolar
+    if fire.colliderect(warNolar):
+        fire.rect.y+=200
+        warNolar_health.rect.width +=1  # Уменьшаем здоровье героя
 
+def war_defance():
+    if fire.colliderect(warNolar):
+        global purple_circle
+        purple_circle.show()
+        purple_circle.rect.x = warNolar.rect.x-20
+        purple_circle.rect.y = warNolar.rect.y-20
+        health_rect.rect.width -= 5
+seijiro_attacks = [
+    lambda: falling_bones_attack(hero),
+    lambda: seijiro.defance([hero]),
+    lambda: seijiro.shadow(hero, enemy_health=health_rect)
+]
+# списки атак босів
+temarius_attack = [lambda: needle_attack(),lambda:cheet()]
+warNolar_attacks = [lambda:return_to_sender(),lambda:war_defance(),lambda:needle_attack()]
+way = Picture(os.path.join("picture","pixilart-drawing (8).png"))
+def cor():
 
+# створення сюжетного листа
 plot_list = [lambda:start(),lambda:show_text(first_text, 10, 10, font_size=30, show_items=[farian]),lambda:end(),
              lambda:show_text(second_text, 10, 10, font_size=30),
              lambda:first_exam(), lambda:the_case(),lambda:show_text(warnining, 10, 10, font_size=30),
              lambda:second_exam(),lambda:show_text(talk_with_human,10,10,font_size=30,show_items=[human]), lambda:in_water_town(),
              lambda:show_text(before_first_fight,10,10,font_size=30),
-             lambda:first_fight(),lambda:show_text(before_second_fight,10,10,font_size=30),lambda:second_fight(),
+             lambda:fight(hero,seijiro,seijiro_health,enemy_attacks=seijiro_attacks),lambda:show_text(before_second_fight,10,10,font_size=30),
+             lambda:fight(hero,seijiro,seijiro_health,enemy_attacks=seijiro_attacks),
              lambda:show_text(after_fight_text,10,10,font_size=30),
-             lambda:after_fight(),lambda:show_text(temarius_text,10,10,font_size=30),lambda:in_his_town(),
-             lambda:temarius_fight(),lambda:temarius_fight2(),
+             lambda:after_fight(),lambda:warNolar_show(),lambda:show_text(warNolar_text,10,10,font_size=30,show_items=[warNolar]),
+             lambda: fight(hero,warNolar,warNolar_health, enemy_attacks=warNolar_attacks),
+             lambda:show_text(temarius_text,10,10,font_size=30),lambda:in_his_town(),
+             lambda:temarius_fight(),lambda:temarius_fight2(),lambda:fight(hero,enemy_person,enemy_health,enemy_attacks=temarius_attack)
              ]
-k = 17
+k = 15
 def plot():
     global k, url, background, hero, plot_list, e, quad
     plot_list[k]()
@@ -476,11 +541,14 @@ FPS = 60
 
 url = os.path.join("picture","1.png")
 background = Picture(url, 0, 0, 1200, 600)
-health_rect = Area(WINDOW_WIDTH-220,10, 200, 20, (255, 0, 0))
 human = Picture(os.path.join("picture","human.png"), WINDOW_WIDTH-400, 450, 100, 110)
+warNolar = Hero(frames=warNolar, x=WINDOW_WIDTH, y=450, width=100, height=110)
 farian = Hero(frames=farian_frame, x=1000, y=450, width=100, height=110)
 leaf = Hero(frames=leaf_frame, x=0, y=0, width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
 lava = Hero(frames=lava_frame, x=0, y=WINDOW_HEIGHT-50, width=WINDOW_WIDTH, height=50)
+to_menu = Area(0, 0, 150, 80, (255, 255, 255))
+to_game = Area(450, 200, 350, 150, (255, 255, 255))
+to_boss = Area(WINDOW_WIDTH-160, WINDOW_HEIGHT-90, 150, 80, (255, 0,0))
 set_pause = False
 pause = Picture(os.path.join("picture","pause.jpg"), 0, 0, 50, 50)
 def fire_attack(enemy,health):
@@ -496,7 +564,7 @@ def fire_attack(enemy,health):
         show_fire = False
         switch = "start"
     if fire.colliderect(enemy):
-        health.rect.width -= 5
+        health.rect.width -= 3
 def hide():
     global hero,hiding
     if hero.direction == "right":
@@ -515,8 +583,12 @@ enemy_person = seijiro
 enemy_health = seijiro_health
 set_attacks = True
 set_run = True
-set_menu = False
+set_menu = True
+the_end_window = False
+boss_fight_start = False
 while running:
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    background.show()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -524,9 +596,27 @@ while running:
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 if button_enter.rect.collidepoint(mouse_x, mouse_y):
-                    e += 1  # переконайся, що e оголошено
+                    e += 1  
                 if pause.rect.collidepoint(mouse_x, mouse_y):
                     set_pause = not set_pause
+                if to_game.rect.collidepoint(mouse_x, mouse_y): 
+                    set_menu = False
+                    set_pause = False
+                    set_attacks = True
+                    set_run = True
+                    the_end_window = False
+                if to_menu.rect.collidepoint(mouse_x, mouse_y): 
+                    set_menu = True
+                    set_pause = False
+                    set_attacks = False
+                    set_run = False
+                    the_end_window = False
+                if to_boss.rect.collidepoint(mouse_x, mouse_y):
+                    k+=1
+                    background = Picture(os.path.join("picture","7.png"))
+                    set_run = True
+                    set_attacks = True
+                    the_end_window = False
         if set_attacks:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_f:
@@ -535,16 +625,34 @@ while running:
                     letsgo = True
                 elif event.key == pygame.K_h:
                     hiding = True
+                elif event.key == pygame.K_p:
+                    if fight:
+                        k+=1
+    
     if set_menu:
         set_run = False
         set_attacks = False
         set_pause = False
         window.fill((0, 0, 0))
-        set_text("Вибери персонажа", 500, 300, (255, 255, 255), font_size=50)
-        set_text("Farian", 100, 100, (255, 255, 255), font_size=30)
-        set_text("Seijirou", 400, 100, (255, 255, 255), font_size=30)
-        set_text("Temarius", 700, 100, (255, 255, 255), font_size=30)
-        set_text("Leaf", 1000, 100, (255, 255, 255), font_size=30)
+        to_game.fill()
+        
+        set_text("Грати", to_game.rect.x+10, to_game.rect.y+10, (0, 0, 0), font_size=150)
+        
+        pygame.display.update()
+        if to_game.rect.collidepoint(mouse_x, mouse_y):
+            to_game.rect.x, to_game.rect.y = 450 - 5, 200 - 5
+        else:
+            to_game.rect.x, to_game.rect.y = 450, 200
+        clock.tick(FPS)
+        pygame.display.update()
+        clock.tick(FPS)
+    elif the_end_window:
+        the_end()
+        set_text("Ось так все і закінчилося. Спробуй довести інше. ", 50, 300, (255, 255, 255), font_size=50)
+        set_text("Темаріус сильніший за головного героя без імені.", 50, 340, (255, 255, 255), font_size=50)
+        set_text("Ти можешь сразитися з Темаріусом натиснувши 'Boss fight'", 50, 380, (255, 255, 255), font_size=50)
+        to_boss.fill()
+        set_text("Boss fight", to_boss.rect.x+10, to_boss.rect.y+10, (0, 0, 0), font_size=40)
         pygame.display.update()
         clock.tick(FPS)
     else:
@@ -554,7 +662,7 @@ while running:
             k+=1
             hero.rect.x = 200
             a = 0
-        mouse_x, mouse_y = pygame.mouse.get_pos()
+        
         leaf.show()
         leaf.max_frame_count = 30
         leaf.animate_walking()
