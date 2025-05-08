@@ -5,6 +5,11 @@ import os
 from heroes_frame import*
 WINDOW_WIDTH, WINDOW_HEIGHT = 1200, 600
 window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+mixer.init()
+mixer.music.load(os.path.join("audio", "1.mp3"))
+mixer.music.set_volume(0.5)
+mixer.music.play(-1)
+
 class Area:
     def __init__(self, x, y, width, height, color):
         self.rect = pygame.Rect(x, y, width, height)
@@ -174,7 +179,8 @@ def start():
     if set_pause:
         pause_game()
     else:        
-        global i,k
+        global i,k,background
+
         farian.show()
         farian.direction = "left"
         farian.animate_walking()
@@ -427,8 +433,9 @@ def the_end():
 
 
 def warNolar_show():
-    global warNolar,frame,k,enemy_health,enemy_person
+    global warNolar,frame,k,enemy_health,enemy_person,background
     warNolar.show()
+    background = Picture(os.path.join("picture","5.png"),0,0,WINDOW_WIDTH,WINDOW_HEIGHT)
     frame+=1
     if frame >=70:
         warNolar.rect.x -=5
@@ -446,6 +453,9 @@ before_second_fight = ["Ти молодець!","Тепер ти можеш ви
 after_fight_text = ["Сейджуро зник....","Ти переміг його!","Але він сказав, що ти повинен перемогти Темаріуса.","Тепер ти можеш йти далі. Ти молодець!","Заходь у портал щоб, повернутися до твого рідного місечка"]
 warNolar_text = ["Я чекав на тебе...","Мені так легко вдалося захопити твоє містечко. А ти втік, залишивши його у біді","Але зараз не до цього, мені лише потрібен твій артефакт","**Схоже Темаріус збирається атакувати, тобі потрібно тікати від ігол під тобою, інакше вони тебе знищать.**"]
 temarius_text = ["Темаріус: Я чекав на тебе...","Я знаю, що ти можеш перемогти мене, але я не дам тобі цього зробити.","Ти повинен пройти через мене, щоб дістатися до артефакту.","Але я не дам тобі цього зробити!"]
+
+instructions = [""]
+
 health_rect = Area(WINDOW_WIDTH-220,10, 200, 20, (255, 0, 0))
 warNolar_health = Area(0, 0, 200, 20, (255, 0, 0))
 def return_to_sender():
@@ -489,13 +499,14 @@ plot_list = [lambda:start(),lambda:show_text(first_text, 10, 10, font_size=30, s
              lambda:show_text(after_fight_text,10,10,font_size=30),lambda:cor(),
              lambda:after_fight(),lambda:warNolar_show(),lambda:show_text(warNolar_text,10,10,font_size=30,show_items=[warNolar]),
              lambda: fight(hero,warNolar,warNolar_health, enemy_attacks=warNolar_attacks),lambda:cor(),
-             lambda:show_text(temarius_text,10,10,font_size=30),lambda:in_his_town(),
+             lambda:show_text(temarius_text,10,10,font_size=30),lambda:in_his_town(),lambda:cor(),
              lambda:fight(hero,temarius,temarius_health,enemy_attacks=temarius_attack),
              lambda:set_win_menu()
              ]
 k = 0
 def plot():
-    global k, url, background, hero, plot_list, e, quad
+    global k, url, background, hero, plot_list, e, quad,heart
+    heart.show()
     plot_list[k]()
 # Ініціалізація
 pygame.init()
@@ -506,6 +517,7 @@ FPS = 60
 url = os.path.join("picture","1.png")
 background = Picture(url, 0, 0, 1200, 600)
 human = Picture(os.path.join("picture","human.png"), WINDOW_WIDTH-400, 450, 100, 110)
+heart = Picture(os.path.join("picture","heart.png"),WINDOW_WIDTH-270,10,50,50)
 warNolar = Hero(frames=warNolar, x=WINDOW_WIDTH, y=450, width=100, height=110)
 farian = Hero(frames=farian_frame, x=1000, y=450, width=100, height=110)
 leaf = Hero(frames=leaf_frame, x=0, y=0, width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
@@ -513,6 +525,7 @@ lava = Hero(frames=lava_frame, x=0, y=WINDOW_HEIGHT-50, width=WINDOW_WIDTH, heig
 to_menu = Area(0, 0, 150, 80, (255, 255, 255))
 to_game = Area(450, 200, 350, 150, (255, 255, 255))
 to_boss = Area(WINDOW_WIDTH-160, WINDOW_HEIGHT-90, 150, 80, (255, 0,0))
+to_instuct = Area(10,10,150,30,(0,0,100))
 set_pause = False
 pause = Picture(os.path.join("picture","pause.jpg"), 0, 0, 50, 50)
 def fire_attack(enemy,health):
@@ -579,6 +592,17 @@ while running:
                     background = Picture(os.path.join("picture","7.png"))
                     set_run = True
                     set_attacks = True
+        if button_enter.rect.collidepoint(mouse_x, mouse_y):
+            button_enter.rect.x, button_enter.rect.y = 1000 - 5, 150 - 5
+        else:
+            button_enter.rect.x, button_enter.rect.y = 1000, 150
+        if set_run:
+            run()
+        if to_instuct.rect.collidepoint(mouse_x,mouse_y):
+            to_instuct.rect.x,to_instuct.rect.y = 5,15
+        else:
+            to_instuct.rect.x,to_instuct.rect.y = 10,10
+
 
         if set_attacks:
             if event.type == pygame.KEYDOWN:
@@ -603,7 +627,8 @@ while running:
         to_game.fill()
         
         set_text("Грати", to_game.rect.x+10, to_game.rect.y+10, (0, 0, 0), font_size=150)
-        
+        to_instuct.fill()
+        set_text("Підказки",13,13,(0,255,0),font_size=30)
         pygame.display.update()
         if to_game.rect.collidepoint(mouse_x, mouse_y):
             to_game.rect.x, to_game.rect.y = 450 - 5, 200 - 5
@@ -646,12 +671,7 @@ while running:
             hero.defance([enemy_person])
         if hiding: 
             hide()
-        if button_enter.rect.collidepoint(mouse_x, mouse_y):
-            button_enter.rect.x, button_enter.rect.y = 1000 - 5, 150 - 5
-        else:
-            button_enter.rect.x, button_enter.rect.y = 1000, 150
-        if set_run:
-            run()
+        
         plot()
         hero.update()
         hero.show()
