@@ -561,8 +561,10 @@ enemy_health = seijiro_health
 set_attacks = True
 set_run = True
 set_menu = True
-
+set_inst = False
 boss_fight_start = False
+to_instuct_back = Area(10,10,550,WINDOW_HEIGHT,(0,0,100))
+close =Area(500,20,30,30,(0,0,100))
 while running:
     mouse_x, mouse_y = pygame.mouse.get_pos()
     background.show()
@@ -581,7 +583,8 @@ while running:
                     set_pause = False
                     set_attacks = True
                     set_run = True
-
+                if to_instruct.rect.collidepoint(mouse_x,mouse_y):
+                    set_instruct = True
                 if to_menu.rect.collidepoint(mouse_x, mouse_y): 
                     set_menu = True
                     set_pause = False
@@ -601,9 +604,9 @@ while running:
         if to_instuct.rect.collidepoint(mouse_x,mouse_y):
             to_instuct.rect.x,to_instuct.rect.y = 5,15
         else:
-            to_instuct.rect.x,to_instuct.rect.y = 10,10
-
-
+            to_instuct.rect.x,to_instuct.rect.y = 10,10 
+        if to_instruct_back.rect.cillidepoint(mouse_x,mouse_y):
+            to_instruct_back.rect.x, to_instruct_bact.rect.y = 455,20
         if set_attacks:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_f:
@@ -617,6 +620,12 @@ while running:
                         k+=1
     
     if set_menu:
+        if set_instruct:
+            to_instruct_back.fill()
+            close.fill()
+            set_text("X",500, 25, (0, 0, 0), font_size=150)
+            set_text(instructions[0],500, 80, (0, 0, 0), font_size=150)
+            set_text(instructions[1],500, 100, (0, 0, 0), font_size=150)
         if k>16:
             k = 0
             set_menu=True
