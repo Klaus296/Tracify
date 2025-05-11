@@ -3,6 +3,7 @@ from random import randint
 from pygame import *
 import os
 from heroes_frame import*
+import json
 WINDOW_WIDTH, WINDOW_HEIGHT = 1200, 600
 window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 class Area:
@@ -112,7 +113,7 @@ hero = Hero(frames= hero_frame,x=200, y=450, width=100, height=110)
 mixer.init()
 mixer.music.load(os.path.join("audio", "1.mp3")) 
 mixer.music.set_volume(0.5)  
-# mixer.music.play(-1)  # Play the music in a loop
+mixer.music.play(-1)
 
 falling_bones = []
 def set_text(text, x, y, color=(255, 255, 255), font_size=30):
@@ -225,19 +226,17 @@ def arrows_attack():
 e = 0
 switch = "start"
 button_enter = Area(1000, 150, 100, 50, (30, 0, 0))  # Define button_enter here
+
 def show_text(active_text, x=10, y=10, color=(255, 255, 255), font_size=30, show_items=[]):
-    global button_enter, quad, e, k,font, event
-    if event.type == pygame.KEYDOWN:
-        e += 1
+    global button_enter, quad, e, k, font, set_run
+    set_run = False
     if e >= len(active_text):
         k += 1
         e = 0
+        set_run = True
         return
     for item in show_items:
         item.show()
-    if e >= len(active_text):
-        k += 1
-        e = 0  
     font = pygame.font.Font(None, font_size)
     quad = Area(x, y, 1150, 200, (0, 0, 0))
     quad.fill()
@@ -263,7 +262,7 @@ def start():
         i+=1
         if i >= 90:
             k+=1
-            farian.rect.x = 0
+            farian.rect.x = WINDOW_WIDTH
             i = 0
 portal = Picture(os.path.join("picture","portal.png"), WINDOW_WIDTH-220, WINDOW_HEIGHT-300, 200, 250)
 def end():
@@ -503,8 +502,10 @@ temarius_health = Area(0, 0, 200, 20, (255, 0, 0))
 fight_frame = 0
 gate = Picture(os.path.join("picture","gate.png"), 0, 0, 200, 200)
 def the_end():
-    global to_menu
+    global to_menu, the_text
     window.fill((0, 0, 0))
+    the_text = Picture(os.path.join("picture","end.png"),100,50,WINDOW_WIDTH-200,WINDOW_WIDTH-200)
+    the_text.show()
     to_menu.fill()
     set_text("Меню", to_menu.rect.x+10, to_menu.rect.y+10, (0, 0, 0), font_size=30)
 
@@ -588,10 +589,10 @@ after_fight_text = [
 ]
 
 warNolar_text = [
-    "Я чекав на тебе...",
+    "Я чекав на тебе..., я помічник Темаріуса",
     "Мені так легко вдалося захопити твоє містечко. А ти втік, залишивши його в біді.",
     "Але зараз не до цього — мені потрібен лише твій артефакт.",
-    "**Схоже, Темаріус збирається атакувати. Тобі потрібно тікати від голок під тобою, інакше вони тебе знищать.**"
+    "**Схоже, Вар Нолар збирається атакувати. Тобі потрібно тікати від голок під тобою, інакше вони тебе знищать.**"
 ]
 
 temarius_text = [
@@ -607,7 +608,7 @@ instructions = [
     "Управління: стрілочки на клавіатурі.",
     "Атаки: F — атака вогняними кулями,"," H — довгий стрибок уперед, ","G — захисний бар’єр.",
     "Усі кнопки — натискні.",
-    "Enter — перехід на наступний текст.","Якщо хочете пропустити рівень","натисніть P на клавіатурі"
+    "Якщо хочете пропустити рівень","натисніть P на клавіатурі"
 ]
 
 health_rect = Area(WINDOW_WIDTH-220,10, 200, 20, (255, 0, 0))
@@ -661,6 +662,10 @@ def timer(max):
         k+=1
         frame = 0
 
+def the_end_2():
+    global set_menu, k
+    set_menu = True
+    k=0
 # створення сюжетного листа
 plot_list = [lambda:start(),lambda:show_text(first_text, 10, 10, font_size=30, show_items=[farian]),lambda:end(),lambda:timer(50),
              lambda:show_text(second_text, 10, 10, font_size=30),lambda:timer(50),
@@ -677,8 +682,8 @@ plot_list = [lambda:start(),lambda:show_text(first_text, 10, 10, font_size=30, s
              lambda:cor(),lambda:cor(),lambda:timer(50),
              lambda:show_text(temarius_text,10,10,font_size=30),lambda:in_his_town(),lambda:timer(50),
              lambda:fight(hero,temarius,temarius_health,enemy_attacks=temarius_attack),lambda:cor(),lambda:timer(50),
-             lambda:start(),lambda:show_text(after_temarius,10,10,font_size=30)
-             ]
+             lambda:start(),lambda:show_text(after_temarius,10,10,font_size=30),lambda:timer(90),lambda:the_end(),lambda:the_end_2()
+            ]
 k = 0
 def plot():
     global k, url, background, hero, plot_list, e, quad
@@ -702,7 +707,7 @@ to_game = Area(450, 200, 350, 150, (255, 255, 255))
 to_boss = Area(WINDOW_WIDTH-160, WINDOW_HEIGHT-90, 150, 80, (255, 0,0))
 set_pause = False
 pause = Picture(os.path.join("picture","pause.jpg"), 7, 0, 50, 50)
-menu = Picture(os.path.join("picture","menu.png"),7,80,50,50)
+
 def fire_attack(enemys = [seijiro,warNolar,temarius]):
     global fire, switch,show_fire,en
     fire.show()
@@ -731,6 +736,9 @@ def hide():
         hero.rect.x -= hero.dop_speed
     hiding = False
 def pause_game():
+    global set_pause, set_menu
+    set_pause = True
+    set_menu = False
     pass
 running = True
 show_fire = False
@@ -761,13 +769,14 @@ while running:
                 if pause.rect.collidepoint(mouse_x, mouse_y):
                     set_menu = False
                     set_pause = not set_pause
+                    with open("save_data.json", "w") as save_file:
+                        json.dump({"k": k}, save_file)
                 if to_game.rect.collidepoint(mouse_x, mouse_y): 
                     set_menu = False
                     set_pause = False
                     set_attacks = True
                     set_run = True
-                if menu.rect.collidepoint(mouse_x,mouse_y):
-                    set_menu = True
+
                 if to_menu.rect.collidepoint(mouse_x, mouse_y): 
                     set_menu = True
                     set_pause = False
@@ -817,7 +826,7 @@ while running:
             set_text(instructions[4],30,180,(255,255,255),font_size=30)
             set_text(instructions[5],30,210,(255,255,255),font_size=30)
             set_text(instructions[6],30,240,(255,255,255),font_size=30)
-            set_text(instructions[7],30,270,(255,255,255),font_size=30)
+
         set_text("Грати", to_game.rect.x+10, to_game.rect.y+10, (0, 0, 0), font_size=150)
  
         pygame.display.update()
@@ -833,10 +842,7 @@ while running:
             close.rect.x, close.rect.y = 15,15
         else:
             close.rect.x, close.rect.y = 20,20
-        if menu.rect.collidepoint(mouse_x,mouse_y):
-            menu.rect.x, menu.rect.y = 5,75
-        else:
-            menu.rect.x, menu.rect.y = 0,80
+
         pygame.display.update()
         clock.tick(FPS)
 
@@ -887,7 +893,7 @@ while running:
         hero.update()
         hero.show()
         health_rect.fill()
-        menu.show()
+
         pygame.display.update()
         clock.tick(FPS)
 
