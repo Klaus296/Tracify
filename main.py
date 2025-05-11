@@ -83,15 +83,7 @@ class Hero(Picture):
             else:
                 self.image = self.walk_left_frames[self.current_frame]
             self.frame_count = 0
-    def animate_standing(self):
-        # Adjust the height and position to simulate crouching
-        crouch_offset = 10
-        self.image = self.stand_image
-        self.rect.height = self.base_height - crouch_offset
-        self.rect.y += crouch_offset
-        # Reset height and position after simulating crouch
-        self.rect.height = self.base_height
-        self.rect.y -= crouch_offset
+    
     def update(self):
         self.y_velocity += self.gravity
         self.rect.y += self.y_velocity
@@ -105,8 +97,7 @@ class Hero(Picture):
         # Анімація
         if self.is_moving:
             self.animate_walking()
-        else:
-            self.animate_standing()
+
 hero = Hero(frames= hero_frame,x=200, y=450, width=100, height=110)
 
 # Підключимо музику на задній фон гри
@@ -116,12 +107,13 @@ mixer.music.set_volume(0.5)
 mixer.music.play(-1)
 
 falling_bones = []
+# Функція для створеня окремого тексту
 def set_text(text, x, y, color=(255, 255, 255), font_size=30):
     font = pygame.font.Font(None, font_size)
     text_surface = font.render(text, True, color)
     window.blit(text_surface, (x, y))
 frame_lose = 0
-def window_lose():
+def window_lose(): #вікно програшу
     window.fill((0, 0, 0))
     set_text("Ти програв! Зараз ти повернешся ", 200, 300, (255, 0, 0), font_size=50)
     set_text("повернешся до гри ", 200, 330, (255, 0, 0), font_size=50)
@@ -146,7 +138,7 @@ def run():
     keys = pygame.key.get_pressed()
     hero.is_moving = False
 
-    # Horizontal movement
+    # Горизонтальний рух
     if keys[K_RIGHT]:
         hero.rect.x += hero.speed
         hero.is_moving = True
@@ -156,26 +148,24 @@ def run():
         hero.is_moving = True
         hero.direction = "left"
 
-    # Jumping
+    # Стрибки
     if keys[K_SPACE] and hero.on_ground:
         hero.y_velocity = hero.jump_speed
         hero.on_ground = False
 
-    # Apply gravity and update vertical position
     hero.y_velocity += hero.gravity
     hero.rect.y += hero.y_velocity
 
-    # Check if hero is on the ground
+    # Перевірка чи на землі
     if hero.rect.y + hero.rect.height >= hero.ground_level + hero.base_height:
         hero.rect.y = hero.ground_level
         hero.y_velocity = 0
         hero.on_ground = True
 
-    # Animate walking or standing
+    # Анімація руху
     if hero.is_moving:
         hero.animate_walking()
-    else:
-        hero.animate_standing()
+
 l = 0
 def arrows_attack():
     global arrows, hero, health_rect, frame, background, ladder,l,k, keys, ladder2
@@ -191,10 +181,10 @@ def arrows_attack():
     if frame % 60 == 0 and len(arrows) < 10:  # Спавн та максимальна кількість
         side = randint(0, 1)  # Рандомна сторона
         l+=1
-        if side == 0:  # Left
+        if side == 0:  # Ліво
             arrow = Picture(os.path.join("picture", "arrow.png"), -50, randint(0, WINDOW_HEIGHT - 50), 150, 10)
             arrow.direction = "right"
-        elif side == 1:  # Right
+        elif side == 1:  # Право
             arrow = Picture(os.path.join("picture", "arrow.png"), WINDOW_WIDTH + 50, randint(0, WINDOW_HEIGHT - 50), 150, 10)
             arrow.direction = "left"
         arrows.append(arrow)
@@ -207,7 +197,7 @@ def arrows_attack():
             hero.rect.y += 15
     else: 
         hero.rect.y = 450
-    # Move and display arrows
+
     for arrow in arrows:
         if arrow.direction == "right":
             arrow.rect.x += 30
@@ -366,12 +356,12 @@ def needle_attack():
     global needle, hero, health_rect, frame
     needle.show()
     frame += 1
-    if frame % 50 == 0:  # Шипы появляются каждые 50 кадров
+    if frame % 50 == 0:  # Шипи з'являються кожні 50 кадрів
         needle.rect.x = randint(0, WINDOW_WIDTH - needle.rect.width)
         needle.rect.y = WINDOW_HEIGHT - needle.rect.height
 
     if hero.colliderect(needle):
-        health_rect.rect.width -= 2  # Уменьшаем здоровье героя при столкновении
+        health_rect.rect.width -= 2  # Зменшуємо здоров'я при зіткнені
 
 fr = 0
 def in_water_town():
